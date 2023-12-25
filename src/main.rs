@@ -1,6 +1,9 @@
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 
+const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\n\r\n";
+const NOT_FOUND: &str = "HTTP/1.1 404 Not Found\r\n\r\n";
+
 fn main() {
     println!("Listening on port 4221");
 
@@ -25,14 +28,30 @@ fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
     let buffer = BufReader::new(&stream);
     let request: Vec<_> = buffer
         .lines()
-        .map(|result| result.unwrap())
+        .map(|result| result.unwrap_or_default())
         .take_while(|line| !line.is_empty())
         .collect();
-    let get_first_header: Vec<&str> = request[0].split(" ").collect();
-    let path = get_first_header[1];
+    let path = request[0].split_whitespace().nth(1).unwrap_or_default();
+    let user_agent = request[2].split_whitespace().nth(1).unwrap_or_default();
     match path {
-        "/" => stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes())?,
-        _ => stream.write_all("HTTP/1.1 404 Not Found\r\n\r\n".as_bytes())?,
+        path if path.starts_with("/echo/") => handle_echo_route(stream, &path[6..])?,
+        path if path.starts_with("/user-agent") => handle_user_agent_route(stream, user_agent)?,
+        "/" => stream.write_all(OK_RESPONSE.as_bytes())?,
+        _ => stream.write_all(NOT_FOUND.as_bytes())?,
     };
+    Ok(())
+}
+
+fn handle_echo_route(mut stream: TcpStream, path: &str) -> std::io::Result<()> {
+    let length = path.len();
+    let response = format!("{OK_RESPONSE}Content-Length: {length}\r\n\r\n{path}");
+    stream.write_all(response.as_bytes())?;
+    Ok(())
+}
+
+fn handle_user_agent_route(mut stream: TcpStream, user_agent: &str) -> std::io::Result<()> {
+    let length = user_agent.len();
+    let response = format!("{OK_RESPONSE}Content-Length: {length}\r\n\r\n{user_agent}");
+    stream.write_all(response.as_bytes())?;
     Ok(())
 }
