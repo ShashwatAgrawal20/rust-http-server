@@ -1,8 +1,9 @@
+use std::error::Error;
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 
-const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\n\r\n";
-const NOT_FOUND: &str = "HTTP/1.1 404 Not Found\r\n\r\n";
+const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\n";
+const NOT_FOUND: &str = "HTTP/1.1 404 Not Found\r\n";
 
 fn main() {
     println!("Listening on port 4221");
@@ -23,7 +24,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
+fn handle_connection(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     println!("new client!");
     let buffer = BufReader::new(&stream);
     let request: Vec<_> = buffer
@@ -34,24 +35,17 @@ fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
     let path = request[0].split_whitespace().nth(1).unwrap_or_default();
     let user_agent = request[2].split_whitespace().nth(1).unwrap_or_default();
     match path {
-        path if path.starts_with("/echo/") => handle_echo_route(stream, &path[6..])?,
-        path if path.starts_with("/user-agent") => handle_user_agent_route(stream, user_agent)?,
-        "/" => stream.write_all(OK_RESPONSE.as_bytes())?,
-        _ => stream.write_all(NOT_FOUND.as_bytes())?,
+        path if path.starts_with("/echo/") => handle_manual_route(stream, &path[6..])?,
+        path if path.starts_with("/user-agent") => handle_manual_route(stream, user_agent)?,
+        "/" => stream.write_all(format!("{OK_RESPONSE}\r\n").as_bytes())?,
+        _ => stream.write_all(format!("{NOT_FOUND}\r\n").as_bytes())?,
     };
     Ok(())
 }
 
-fn handle_echo_route(mut stream: TcpStream, path: &str) -> std::io::Result<()> {
-    let length = path.len();
-    let response = format!("{OK_RESPONSE}Content-Length: {length}\r\n\r\n{path}");
-    stream.write_all(response.as_bytes())?;
-    Ok(())
-}
-
-fn handle_user_agent_route(mut stream: TcpStream, user_agent: &str) -> std::io::Result<()> {
-    let length = user_agent.len();
-    let response = format!("{OK_RESPONSE}Content-Length: {length}\r\n\r\n{user_agent}");
+fn handle_manual_route(mut stream: TcpStream, thing_to_echo: &str) -> Result<(), Box<dyn Error>> {
+    let length = thing_to_echo.len();
+    let response = format!("{OK_RESPONSE}Content-type: text/plain\r\nContent-Length: {length}\r\n\r\n{thing_to_echo}\r\n");
     stream.write_all(response.as_bytes())?;
     Ok(())
 }
