@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
+use std::thread;
 
 const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\n";
 const NOT_FOUND: &str = "HTTP/1.1 404 Not Found\r\n";
@@ -13,9 +14,11 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                if let Err(e) = handle_connection(stream) {
-                    eprintln!("error: {}", e);
-                }
+                thread::spawn(|| {
+                    if let Err(e) = handle_connection(stream) {
+                        eprintln!("error: {}", e);
+                    }
+                });
             }
             Err(e) => {
                 eprintln!("Error accepting connection: {}", e);
