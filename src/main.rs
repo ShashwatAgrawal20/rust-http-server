@@ -49,10 +49,10 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     match path {
         path if path.starts_with("/echo/") => handle_manual_route(stream, &path[6..])?,
         path if path.starts_with("/user-agent") => handle_manual_route(stream, user_agent)?,
-        path if path.starts_with("/files") && method.starts_with("POST") => {
+        path if path.starts_with("/files") && method.starts_with("POST") && args.len() > 1 => {
             post_file(stream, &path[7..], args, result)?
         }
-        path if path.starts_with("/files") => get_file(stream, &path[7..], args)?,
+        path if path.starts_with("/files") && args.len() > 1 => get_file(stream, &path[7..], args)?,
         "/" => stream.write_all(format!("{OK_RESPONSE}\r\n").as_bytes())?,
         _ => stream.write_all(format!("{NOT_FOUND}\r\n").as_bytes())?,
     };
